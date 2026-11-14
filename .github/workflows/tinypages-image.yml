@@ -1,6 +1,8 @@
-# Builds the TinyPages Umami image on a native amd64 runner and pushes it to GHCR, tagged with the
-# commit sha (the version Kamal deploys). Deploy from the Mac: `kamal deploy -d <destination> --skip-push`.
-# A Mac build runs under amd64 emulation and the Next.js (Turbopack) build dies silently there.
+# Builds the TinyPages Umami image on a native amd64 runner, pushes it to GHCR tagged with the commit
+# sha (the version Kamal deploys), then deploys it: preview -> tinypages-preview, master ->
+# tinypages-prod. Same pattern as tinypages/.github/workflows/deploy-hetzner.yml.
+# A Mac build runs under amd64 emulation and the Next.js (Turbopack) build dies silently there;
+# a manual deploy from the Mac is `kamal deploy -d <destination> --skip-push` once the image exists.
 name: TinyPages image
 
 on:
@@ -34,3 +36,50 @@ jobs:
           labels: service=umami
           cache-from: type=registry,ref=ghcr.io/tinypages-co/tinypages-umami:buildcache
           cache-to: type=registry,ref=ghcr.io/tinypages-co/tinypages-umami:buildcache,mode=max,image-manifest=true,oci-mediatypes=true
+
+  deploy:
+    needs: build
+    if: >-
+      (github.ref_name == 'preview' && vars.HETZNER_DEPLOY_ENABLED == 'true') ||
+      (github.ref_name == 'master' && vars.HETZNER_DEPLOY_PRODUCTION == 'true')
+    runs-on: ubuntu-latest
+    # Dedicated environments restricted to their branch. Same secret names in both
+    # (KAMAL_SECRETS, KAMAL_SSH_KEY, TS_OAUTH_*), different values.
+    environment: ${{ github.ref_name == 'master' && 'hetzner-production' || 'hetzner-preview' }}
+    permissions:
+      contents: read
+      packages: read
+    concurrency:
+      group: deploy-umami-${{ github.ref_name }}
+      cancel-in-progress: false
+    env:
+      DESTINATION: ${{ github.ref_name == 'master' && 'production' || 'preview' }}
+      # Kamal comes from config/kamal/Gemfile.lock, never a floating install.
+      BUNDLE_GEMFILE: ${{ github.workspace }}/config/kamal/Gemfile
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: tailscale/github-action@6cae46e2d796f265265cfcf628b72a32b4d7cade # v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: ${{ github.ref_name == 'master' && 'tag:ci-prod' || 'tag:ci' }}
+      - uses: webfactory/ssh-agent@a6f90b1f127823b31d4d4a8d96047790581349bd # v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.KAMAL_SSH_KEY }}
+      - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+      - name: Write secrets
+        env:
+          KAMAL_SECRETS: ${{ secrets.KAMAL_SECRETS }}
+          REGISTRY_USER: ${{ github.actor }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p .kamal
+          umask 077
+          printf '%s\n' "$KAMAL_SECRETS" > ".kamal/secrets.$DESTINATION"
+          printf 'KAMAL_REGISTRY_USERNAME=%s\nKAMAL_REGISTRY_PASSWORD=%s\n' "$REGISTRY_USER" "$REGISTRY_TOKEN" >> ".kamal/secrets.$DESTINATION"
+      # The image was pushed by the build job under the commit sha, which is Kamal's version.
+      - name: Deploy
+        run: bundle exec kamal deploy -d "$DESTINATION" --skip-push

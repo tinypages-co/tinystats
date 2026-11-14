@@ -1,0 +1,4 @@
+source "https://rubygems.org"
+
+# Kamal version used by CI (.github/workflows/deploy-hetzner.yml) and locally.
+gem "kamal", "2.12.0"
