@@ -1,0 +1,18 @@
+servers:
+  web:
+    hosts:
+      - tinypages-preview
+    options:
+      memory: 768m
+      cap-drop: ALL
+      security-opt: no-new-privileges
+proxy:
+  host: analytics-preview.tinypages.dev
+accessories:
+  db:
+    host: tinypages-preview
+    # Data on the Hetzner Volume umami-db-preview (10 GB, Helsinki), not on the server disk.
+    volumes:
+      - /mnt/HC_Volume_107467207/pgdata:/var/lib/postgresql/data
+    options:
+      memory: 512m

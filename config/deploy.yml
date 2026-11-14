@@ -1,0 +1,56 @@
+# Umami (fork tinypages-co/umami) on the TinyPages Hetzner servers, deployed with Kamal like the api.
+# Plan and runbook: tinypages repo, docs/superpowers/plans/2026-11-14-umami-hetzner.md.
+service: umami
+image: tinypages-co/tinypages-umami
+require_destination: true
+registry:
+  server: ghcr.io
+  username:
+    - KAMAL_REGISTRY_USERNAME
+  password:
+    - KAMAL_REGISTRY_PASSWORD
+builder:
+  arch: amd64
+  provenance: false
+  cache:
+    type: registry
+    image: tinypages-co/tinypages-umami:buildcache
+    options: mode=max,image-manifest=true,oci-mediatypes=true
+ssh:
+  user: deploy
+drain_timeout: 30
+logging:
+  driver: json-file
+  options:
+    max-size: 50m
+    max-file: 5
+    labels: service,destination
+proxy:
+  app_port: 3000
+  # TLS ends at Caddy (Cloudflare origin certificate + mutual TLS), kamal-proxy speaks plain HTTP.
+  ssl: false
+  forward_headers: true
+  healthcheck:
+    path: /api/heartbeat
+    interval: 3
+    timeout: 3
+  buffering:
+    requests: true
+    responses: false
+    # Tracker events are small JSON payloads.
+    max_request_body: 1048576
+env:
+  secret:
+    - APP_SECRET
+    - DATABASE_URL
+accessories:
+  db:
+    # Postgres 17 like the Render instance it replaces. No published port: reachable only on the
+    # kamal network, as umami-db:5432.
+    image: postgres:17@sha256:846a7ddaa67a4b354ae1d21087b683901aa6113a4ed626d3787cfbf6c85e3e07
+    env:
+      clear:
+        POSTGRES_USER: umami
+        POSTGRES_DB: umami
+      secret:
+        - POSTGRES_PASSWORD
