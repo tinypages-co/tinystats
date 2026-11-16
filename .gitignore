@@ -52,3 +52,6 @@ yarn-error.log*
 *.env.*
 
 *.dev.yml
+
+# Kamal secrets (never committed)
+.kamal/secrets*
