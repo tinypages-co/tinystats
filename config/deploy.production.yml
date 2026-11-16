@@ -1,0 +1,21 @@
+servers:
+  web:
+    hosts:
+      - tinypages-prod
+    options:
+      memory: 1536m
+      # The TinyPages API reads the stats on the kamal network (http://umami-internal:3000/api),
+      # without Cloudflare nor kamal-proxy: the API keeps working whatever the public DNS says.
+      network-alias: umami-internal
+      cap-drop: ALL
+      security-opt: no-new-privileges
+proxy:
+  host: analytics.tinypages.dev
+accessories:
+  db:
+    host: tinypages-prod
+    # Data on the Hetzner Volume umami-db-prod (10 GB, Ashburn), not on the server disk.
+    volumes:
+      - /mnt/HC_Volume_107483729/pgdata:/var/lib/postgresql/data
+    options:
+      memory: 1g
