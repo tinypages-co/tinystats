@@ -39,9 +39,8 @@ jobs:
 
   deploy:
     needs: build
-    if: >-
-      (github.ref_name == 'preview' && vars.HETZNER_DEPLOY_ENABLED == 'true') ||
-      (github.ref_name == 'master' && vars.HETZNER_DEPLOY_PRODUCTION == 'true')
+    # preview -> tinypages-preview, master -> tinypages-prod (both on Hetzner since 16/11/2026).
+    if: github.ref_name == 'preview' || github.ref_name == 'master'
     runs-on: ubuntu-latest
     # Dedicated environments restricted to their branch. Same secret names in both
     # (KAMAL_SECRETS, KAMAL_SSH_KEY, TS_OAUTH_*), different values.
