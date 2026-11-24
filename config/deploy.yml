@@ -47,7 +47,7 @@ accessories:
   db:
     # Postgres 17 like the Render instance it replaces. No published port: reachable only on the
     # kamal network, as umami-db:5432.
-    image: postgres:17@sha256:846a7ddaa67a4b354ae1d21087b683901aa6113a4ed626d3787cfbf6c85e3e07
+    image: postgres:17@sha256:223efeb196329b55b3b9a13db144956411dbc18e727e59f681c3e0aede6475cf
     env:
       clear:
         POSTGRES_USER: umami
