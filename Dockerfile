@@ -46,7 +46,9 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 RUN set -x \
     && apk add --no-cache curl libc6-compat \
-    && npm install -g pnpm
+    # npm stays (CMD uses it), but a newer one: the npm bundled with the Node image carries
+    # undici/brace-expansion CVEs (Trivy, 24/11/2026).
+    && npm install -g npm@11.21.2 pnpm
 
 RUN echo {} > package.json
 
